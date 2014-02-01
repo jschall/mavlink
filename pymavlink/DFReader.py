@@ -103,6 +103,14 @@ class DFReader(object):
         self.px4_timestamps = False
         self.px4_timebase = 0
         self.timestamp = 0
+        self.params = {}
+    
+    def param(self, name, default=None):
+        '''convenient function for returning an arbitrary MAVLink
+        parameter with a default'''
+        if not name in self.params:
+            return default
+        return self.params[name]
         
     def _rewind(self):
         '''reset counters on rewind'''
@@ -222,6 +230,8 @@ class DFReader(object):
         else:
             self.counts_since_gps[type] += 1
 
+        if type == 'PARM':
+            self.params[m.Name] = m.Value
         if type == 'TIME' and 'StartTime' in m._fieldnames:
             self.px4_timebase = m.StartTime * 1.0e-6
             self.px4_timestamps = True
