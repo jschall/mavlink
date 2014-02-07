@@ -84,15 +84,20 @@ class DFMessage(object):
                 self._d[name] = null_term(self._d[name])
             if mul is not None and apply_multiplier:
                 self._d[name] = self._d[name] * mul
-        self._fieldnames = fmt.columns
+        self._fieldnames = list(fmt.columns)
         self.__dict__.update(self._d)
 
+    def add_value(self, name, value):
+        self._d[name] = value
+        self._fieldnames.append(name)
+        self.__dict__.update(self._d)
+    
     def get_type(self):
         return self.fmt.name
 
     def __str__(self):
         ret = "%s {" % self.fmt.name
-        for c in self.fmt.columns:
+        for c in self._fieldnames:
             ret += "%s : %s, " % (c, self._d[c])
         ret = ret[:-2] + "}"
         return ret
@@ -369,6 +374,7 @@ class DFReader_text(DFReader):
             self.formats[elements[2]] = DFFormat(elements[2], int(elements[1]), elements[3], elements[4])
 
         m = DFMessage(fmt, elements, False)
+        m.add_value("line", self.line)
 
         return m
 
