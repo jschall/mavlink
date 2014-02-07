@@ -107,6 +107,7 @@ class DFReader(object):
     def __init__(self):
         # read the whole file into memory for simplicity
         self.msg_periods = {}
+        self.timestrat = "QUEUE_INTERPOLATE"
     
     def param(self, name, default=None):
         '''convenient function for returning an arbitrary MAVLink
@@ -136,13 +137,18 @@ class DFReader(object):
     
     def recv_msg(self):
         '''recv the next message'''
-        if len(self.queue) == 0:
-            self._fill_msg_queue()
-        if len(self.queue) ==0:
-            return None
-        m = self.queue.pop()
-        self._update_state(m)
+        m = None
+        
+        if self.timestrat == "QUEUE_INTERPOLATE": #queue between GPS messages and interpolate
+            if len(self.queue) == 0:
+                self._fill_msg_queue()
+            if len(self.queue) ==0:
+                return None
+            m = self.queue.pop()
+            self._update_state(m)
+            
         return m
+        
     
     def _rewind(self):
         '''reset log state on rewind'''
@@ -185,7 +191,10 @@ class DFReader(object):
                 counts[m_type] = counts.get(m_type, 0) + 1
                 self.queue.append(m)
             else:
-                while len(self.queue) and self.queue.pop().get_type() != 'GPS': #just delete all messages after last GPS with time
+                while len(self.queue) and self.queue.pop().get_type() != 'GPS':
+                    #throw away all messages after last GPS message for simplicity.
+                    #In the future, this should be changed to use the saved message
+                    #periods to assign timestamps
                     continue
             
             if len(self.queue) == 0:
