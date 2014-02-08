@@ -107,7 +107,8 @@ class DFReader(object):
     def __init__(self):
         # read the whole file into memory for simplicity
         self.msg_periods = {}
-        self.timestrat = "QUEUE_INTERPOLATE"
+        self.timestrat = "UNKNOWN"
+        self.gps_TimeMS_diff = 0
     
     def param(self, name, default=None):
         '''convenient function for returning an arbitrary MAVLink
@@ -145,10 +146,19 @@ class DFReader(object):
             if len(self.queue) ==0:
                 return None
             m = self.queue.pop()
-            self._update_state(m)
-            
-        return m
+        if self.timestrat == "UNKNOWN":
+            m = self._parse_next()
         
+        self._update_state(m)
+        return m
+    
+    def _preread(self):
+        '''determine self.timestrat and self.gps_T_diff'''
+        gps = self.recv_match(type='GPS', condition='getattr(GPS,"Week",0)!=0 or getattr(GPS,"TimeMS",0)!=0 or getattr(GPS,"Time",0)!=0')
+        
+        if 'T' in gps._fieldnames:
+            self.gps_TimeMS_diff = self._get_gps_time(gps) - gps.T*0.001
+        self.timestrat = "QUEUE_INTERPOLATE"
     
     def _rewind(self):
         '''reset log state on rewind'''
@@ -163,8 +173,6 @@ class DFReader(object):
     def _get_gps_time(self, gps):
         '''retrieve GPS time from a GPS message'''
         time = None
-        if 'T' in gps._fieldnames:
-            return gps.T*0.001
         if 'Time' in gps._fieldnames:
             time = gps.Time*0.001
         if 'TimeMS' in gps._fieldnames:
@@ -172,8 +180,19 @@ class DFReader(object):
         if 'Week' in gps._fieldnames:
             epoch = 86400*(10*365 + (1980-1969)/4 + 1 + 6 - 2)
             time = epoch + 86400*7*gps.Week + time - 15
-        
         return time
+    
+    def _get_timestamp(self,m):
+        if m.get_type() == 'GPS' or m.get_type() == 'GPS2':
+            if 'T' in m._fieldnames:
+                return m.T*0.001+self.gps_TimeMS_diff
+            else:
+                return self._get_gps_time(m)
+        else:
+            if 'TimeMS' in m._fieldnames:
+                return m.TimeMS*0.001
+            else:
+                return None
     
     def _fill_msg_queue(self):
         if len(self.queue):
@@ -193,14 +212,14 @@ class DFReader(object):
             else:
                 while len(self.queue) and self.queue.pop().get_type() != 'GPS':
                     #throw away all messages after last GPS message for simplicity.
-                    #In the future, this should be changed to use the saved message
+                    #In the future, this should be changed to use the stored message
                     #periods to assign timestamps
                     continue
             
             if len(self.queue) == 0:
                 return 0
             
-            if m_type == 'GPS' and self._get_gps_time(m): #handle first GPS message
+            if m_type == 'GPS' and self._get_timestamp(m): #handle first GPS message
                 gps_time = self._get_gps_time(m)
                 #set last gps time and continue, we have to get at least one more GPS message to interpolate
                 if self.last_gps_time is None:
@@ -217,13 +236,8 @@ class DFReader(object):
                 for i in self.queue:
                     i_type = i.get_type()
                     
-                    if i_type == 'GPS' or i_type == 'GPS2':
-                        i._timestamp = self._get_gps_time(i)
-                        if i._timestamp:
-                            continue
-                    
-                    if 'T' in i._fieldnames:
-                        i._timestamp = i.T
+                    i._timestamp = self._get_timestamp(i)
+                    if i._timestamp:
                         continue
                     
                     self.msg_periods[i_type] = gps_time_delta/counts[i_type]
@@ -265,6 +279,8 @@ class DFReader_binary(DFReader):
         self.formats = {
             0x80 : DFFormat('FMT', 89, 'BBnNZ', "Type,Length,Name,Format,Columns")
         }
+        self._rewind()
+        self._preread()
         self._rewind()
 
     def _rewind(self):
@@ -331,6 +347,8 @@ class DFReader_text(DFReader):
         self.formats = {
             'FMT' : DFFormat('FMT', 89, 'BBnNZ', "Type,Length,Name,Format,Columns")
         }
+        self._rewind()
+        self._preread()
         self._rewind()
 
     def _rewind(self):
