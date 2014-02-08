@@ -190,7 +190,7 @@ class DFReader(object):
                 return self._get_gps_time(m)
         else:
             if 'TimeMS' in m._fieldnames:
-                return m.TimeMS*0.001
+                return m.TimeMS*0.001+self.gps_TimeMS_diff
             else:
                 return None
     
@@ -255,6 +255,9 @@ class DFReader(object):
         type = m.get_type()
         
         self.messages[type] = m
+        
+        if hasattr(m,'_timestamp'):
+            self.timestamp = m._timestamp
 
         if type == 'PARM':
             self.params[m.Name] = m.Value
