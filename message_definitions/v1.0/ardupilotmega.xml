@@ -1357,6 +1357,20 @@
       <field type="uint32_t" name="request_id">request ID - copied from request</field>
       <field type="uint8_t" name="result">0 for success, anything else is failure code</field>
     </message>
+    <message id="11004" name="WRITE_DATAFLASH_LOG_REQUEST">
+        <description>Command a device to write a dataflash log message.</description>
+        <field name="target_system" type="uint8_t">System ID</field>
+        <field name="target_component" type="uint8_t">Component ID</field>
+        <field type="uint8_t" name="request_id">request ID - copied to reply</field>
+        <field name="message_name" type="char[4]">Message name - max 4 characters - null terminated if less than 4 characters</field>
+        <field name="message_format" type="char[16]">Message data type string, max 16 characters, null terminated if less than 16 characters. b=int8_t, B=uint8_t, h=int16_t, H=uint16_t, i=int32_t, I=uint32_t, f=float, n=char[4], N=char[16], Z=char[64], c=int16_t (scaled by 100), C=uint16_t (scaled by 100), e=int32_t (scaled by 100), E=uint32_t (scaled by 100), L=int32_t (scaled by 1e7), d=double, M=int8_t (flight mode), q=int64_t, Q=uint64_t</field>
+        <field name="message_keys" type="char[64]">Message keys, max 64 characters, comma separated, null terminated if less than 64 characters</field>
+        <field name="message_data" type="uint8_t[144]">Message data, max 144 characters</field>
+    </message>
+    <message id="11005" name="WRITE_DATAFLASH_LOG_MESSAGE_ACK">
+        <field type="uint32_t" name="request_id">request ID - copied from request</field>
+        <field type="uint8_t" name="result">0 for success, anything else is failure code</field>
+    </message>
     <!-- realtime Adaptive Controller tuning message -->
     <message id="11010" name="ADAP_TUNING">
       <description>Adaptive Controller tuning information</description>
